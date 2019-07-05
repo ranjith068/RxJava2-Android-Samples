@@ -1,4 +1,4 @@
-package com.rxjava2.android.samples.ui.operators;
+package com.rxjava2.android.samples.ui.cache;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -7,28 +7,33 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.rxjava2.android.samples.R;
+import com.rxjava2.android.samples.ui.cache.model.Data;
+import com.rxjava2.android.samples.ui.cache.source.DataSource;
+import com.rxjava2.android.samples.ui.cache.source.DiskDataSource;
+import com.rxjava2.android.samples.ui.cache.source.MemoryDataSource;
+import com.rxjava2.android.samples.ui.cache.source.NetworkDataSource;
 import com.rxjava2.android.samples.utils.AppConstant;
 
 import androidx.appcompat.app.AppCompatActivity;
 import io.reactivex.Observable;
 import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.schedulers.Schedulers;
 
-/**
- * Created by amitshekhar on 28/08/16.
- */
-public class MergeExampleActivity extends AppCompatActivity {
+public class CacheExampleActivity extends AppCompatActivity {
 
-    private static final String TAG = MergeExampleActivity.class.getSimpleName();
+    private static final String TAG = CacheExampleActivity.class.getSimpleName();
     Button btn;
     TextView textView;
+    DataSource dataSource;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_example);
-        btn = findViewById(R.id.btn);
-        textView = findViewById(R.id.textView);
+        btn = (Button) findViewById(R.id.btn);
+        textView = (TextView) findViewById(R.id.textView);
 
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -36,28 +41,26 @@ public class MergeExampleActivity extends AppCompatActivity {
                 doSomeWork();
             }
         });
+
+        dataSource = new DataSource(new MemoryDataSource(), new DiskDataSource(), new NetworkDataSource());
     }
 
-    /*
-     * Using merge operator to combine Observable : merge does not maintain
-     * the order of Observable.
-     * It will emit all the 7 values may not be in order
-     * Ex - "A1", "B1", "A2", "A3", "A4", "B2", "B3" - may be anything
-     */
     private void doSomeWork() {
-        final String[] aStrings = {"A1", "A2", "A3", "A4"};
-        final String[] bStrings = {"B1", "B2", "B3"};
 
-        final Observable<String> aObservable = Observable.fromArray(aStrings);
-        final Observable<String> bObservable = Observable.fromArray(bStrings);
+        Observable<Data> memory = dataSource.getDataFromMemory();
+        Observable<Data> disk = dataSource.getDataFromDisk();
+        Observable<Data> network = dataSource.getDataFromNetwork();
 
-        Observable.merge(aObservable, bObservable)
+        Observable.concat(memory, disk, network)
+                .firstElement()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .toObservable()
                 .subscribe(getObserver());
     }
 
-
-    private Observer<String> getObserver() {
-        return new Observer<String>() {
+    private Observer<Data> getObserver() {
+        return new Observer<Data>() {
 
             @Override
             public void onSubscribe(Disposable d) {
@@ -65,10 +68,10 @@ public class MergeExampleActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onNext(String value) {
-                textView.append(" onNext : value : " + value);
+            public void onNext(Data data) {
+                textView.append(" onNext : " + data.source);
                 textView.append(AppConstant.LINE_SEPARATOR);
-                Log.d(TAG, " onNext : value : " + value);
+                Log.d(TAG, " onNext : " + data.source);
             }
 
             @Override
@@ -86,6 +89,5 @@ public class MergeExampleActivity extends AppCompatActivity {
             }
         };
     }
-
 
 }

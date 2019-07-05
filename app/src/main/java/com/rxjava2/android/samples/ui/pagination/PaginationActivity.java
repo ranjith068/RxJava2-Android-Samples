@@ -1,28 +1,24 @@
 package com.rxjava2.android.samples.ui.pagination;
 
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.widget.ProgressBar;
 
 import com.rxjava2.android.samples.R;
 
-import org.reactivestreams.Publisher;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import io.reactivex.Flowable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.annotations.NonNull;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
-import io.reactivex.functions.Function;
 import io.reactivex.processors.PublishProcessor;
+import io.reactivex.schedulers.Schedulers;
 
 /**
  * Created by amitshekhar on 15/03/17.
@@ -47,10 +43,10 @@ public class PaginationActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pagination);
-        recyclerView = (RecyclerView) findViewById(R.id.recyclerView);
-        progressBar = (ProgressBar) findViewById(R.id.progressBar);
+        recyclerView = findViewById(R.id.recyclerView);
+        progressBar = findViewById(R.id.progressBar);
         layoutManager = new LinearLayoutManager(this);
-        layoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+        layoutManager.setOrientation(RecyclerView.VERTICAL);
         recyclerView.setLayoutManager(layoutManager);
         paginationAdapter = new PaginationAdapter();
         recyclerView.setAdapter(paginationAdapter);
@@ -94,23 +90,21 @@ public class PaginationActivity extends AppCompatActivity {
 
         Disposable disposable = paginator
                 .onBackpressureDrop()
-                .concatMap(new Function<Integer, Publisher<List<String>>>() {
-                    @Override
-                    public Publisher<List<String>> apply(@NonNull Integer page) throws Exception {
-                        loading = true;
-                        progressBar.setVisibility(View.VISIBLE);
-                        return dataFromNetwork(page);
-                    }
+                .doOnNext(page -> {
+                    loading = true;
+                    progressBar.setVisibility(View.VISIBLE);
                 })
+                .concatMapSingle(page -> dataFromNetwork(page)
+                        .subscribeOn(Schedulers.io())
+                        .doOnError(throwable -> {
+                            // handle error
+                        }))
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Consumer<List<String>>() {
-                    @Override
-                    public void accept(@NonNull List<String> items) throws Exception {
-                        paginationAdapter.addItems(items);
-                        paginationAdapter.notifyDataSetChanged();
-                        loading = false;
-                        progressBar.setVisibility(View.INVISIBLE);
-                    }
+                .subscribe(items -> {
+                    paginationAdapter.addItems(items);
+                    paginationAdapter.notifyDataSetChanged();
+                    loading = false;
+                    progressBar.setVisibility(View.INVISIBLE);
                 });
 
         compositeDisposable.add(disposable);
@@ -122,18 +116,15 @@ public class PaginationActivity extends AppCompatActivity {
     /**
      * Simulation of network data
      */
-    private Flowable<List<String>> dataFromNetwork(final int page) {
-        return Flowable.just(true)
+    private Single<List<String>> dataFromNetwork(final int page) {
+        return Single.just(true)
                 .delay(2, TimeUnit.SECONDS)
-                .map(new Function<Boolean, List<String>>() {
-                    @Override
-                    public List<String> apply(@NonNull Boolean value) throws Exception {
-                        List<String> items = new ArrayList<>();
-                        for (int i = 1; i <= 10; i++) {
-                            items.add("Item " + (page * 10 + i));
-                        }
-                        return items;
+                .map(value -> {
+                    List<String> items = new ArrayList<>();
+                    for (int i = 1; i <= 10; i++) {
+                        items.add("Item " + (page * 10 + i));
                     }
+                    return items;
                 });
     }
 }

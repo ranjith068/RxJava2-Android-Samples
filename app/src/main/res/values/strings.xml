@@ -3,6 +3,7 @@
     <string name="doSomeWork">doSomeWork</string>
     <string name="operators">Operators</string>
     <string name="networking">Networking</string>
+    <string name="cache">Cache</string>
     <string name="pagination">Pagination</string>
     <string name="search">Search</string>
     <string name="simple">Simple</string>
@@ -42,4 +43,7 @@
     <string name="rx_bus">RxBus</string>
     <string name="compose">Compose for reusable</string>
     <string name="result">Result</string>
+    <string name="switch_map">Switch Map</string>
+    <string name="take_while">Take While</string>
+    <string name="take_until">Take Until</string>
 </resources>

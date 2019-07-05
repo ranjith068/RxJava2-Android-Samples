@@ -9,24 +9,33 @@ import android.widget.TextView;
 import com.rxjava2.android.samples.R;
 import com.rxjava2.android.samples.utils.AppConstant;
 
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import io.reactivex.Observable;
+import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 
 /**
- * Created by amitshekhar on 28/08/16.
+ * Created by thanhtuan on 26/04/18.
  */
-public class MergeExampleActivity extends AppCompatActivity {
+public class SwitchMapExampleActivity extends AppCompatActivity {
 
-    private static final String TAG = MergeExampleActivity.class.getSimpleName();
+    private static final String TAG = SwitchMapExampleActivity.class.getSimpleName();
     Button btn;
     TextView textView;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_example);
+
         btn = findViewById(R.id.btn);
         textView = findViewById(R.id.textView);
 
@@ -38,27 +47,34 @@ public class MergeExampleActivity extends AppCompatActivity {
         });
     }
 
-    /*
-     * Using merge operator to combine Observable : merge does not maintain
-     * the order of Observable.
-     * It will emit all the 7 values may not be in order
-     * Ex - "A1", "B1", "A2", "A3", "A4", "B2", "B3" - may be anything
+    /* whenever a new item is emitted by the source Observable, it will unsubscribe to and stop
+     * mirroring the Observable that was generated from the previously-emitted item,
+     * and begin only mirroring the current one.
+     *
+     * Result: 5x
      */
     private void doSomeWork() {
-        final String[] aStrings = {"A1", "A2", "A3", "A4"};
-        final String[] bStrings = {"B1", "B2", "B3"};
+        getObservable()
+                .switchMap(new Function<Integer, ObservableSource<String>>() {
+                    @Override
+                    public ObservableSource<String> apply(Integer integer) {
+                        int delay = new Random().nextInt(2);
 
-        final Observable<String> aObservable = Observable.fromArray(aStrings);
-        final Observable<String> bObservable = Observable.fromArray(bStrings);
-
-        Observable.merge(aObservable, bObservable)
+                        return Observable.just(integer.toString() + "x")
+                                .delay(delay, TimeUnit.SECONDS, Schedulers.io());
+                    }
+                })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(getObserver());
     }
 
+    private Observable<Integer> getObservable() {
+        return Observable.just(1, 2, 3, 4, 5);
+    }
 
     private Observer<String> getObserver() {
         return new Observer<String>() {
-
             @Override
             public void onSubscribe(Disposable d) {
                 Log.d(TAG, " onSubscribe : " + d.isDisposed());
@@ -68,7 +84,7 @@ public class MergeExampleActivity extends AppCompatActivity {
             public void onNext(String value) {
                 textView.append(" onNext : value : " + value);
                 textView.append(AppConstant.LINE_SEPARATOR);
-                Log.d(TAG, " onNext : value : " + value);
+                Log.d(TAG, " onNext value : " + value);
             }
 
             @Override
@@ -86,6 +102,4 @@ public class MergeExampleActivity extends AppCompatActivity {
             }
         };
     }
-
-
 }
